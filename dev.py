@@ -141,7 +141,135 @@ m = np.float32([
                 [500, 345],
                 [780, 345],
                 [1280, 720]])
-channel_count = I.shape[2]  # i.e. 3 or 4 depending on your image
+channel_count = I.shape[2]  # i.e. 3 or 4 depending def convertColorSpace(I,space = 'HLS', cvload = True):
+    if space == 'RGB':
+        if cvload:
+            ret = cv2.cvtColor(I,cv2.COLOR_BGR2RGB)
+        else:
+            ret = I
+    elif space == 'gray':
+        ret = cv2.cvtColor(cv2.cvtColor(I,cv2.COLOR_BGR2GRAY),cv2.COLOR_GRAY2BGR)
+        # add color channels:
+    elif space == 'HLS':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+    elif space == 'HSV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2HSV)
+    elif space == 'LUV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2LUV)
+    elif space == 'YUV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2YUV)
+    elif space == 'YCrCb':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2YCrCb)
+    return ret
+
+def getMask(I):
+    mask = np.zeros(I.shape, dtype=np.uint8)
+    channel_count = I.shape[2]  # i.e. 3 or 4 depending on your image
+    ignore_mask_color = (255,)*channel_count
+    roi_corners = np.array([[(0,720), (500,345), (780,345),(1280,720)]], dtype=np.int32)
+    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+    return mask
+
+def getMaskTrack(I):
+    mask = np.zeros(I.shape, dtype=np.uint8)
+    channel_count = I.shape[2]  # i.e. 3 or 4 depending on your image
+    ignore_mask_color = (255,)*channel_count
+    roi_corners = np.array([[(360,720), (360,620), (920,620),(920,720)]], dtype=np.int32)
+    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+    return mask
+
+def sobel(img, dir = 'x'):
+     # Sobel x
+     if dir == 'x':
+         sobel = cv2.Sobel(img, cv2.CV_64F, 1, 0) # Take the derivative in x
+     else:
+         sobel = cv2.Sobel(img, cv2.CV_64F, 0, 1) # Take the derivative in y
+     abs_sobel = np.absolute(sobel) # Absolute x derivative to accentuate lines away from horizontal
+     scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
+     return scaled_sobel
+
+def generic_threshold(img, thresh = []):def convertColorSpace(I,space = 'HLS', cvload = True):
+    if space == 'RGB':
+        if cvload:
+            ret = cv2.cvtColor(I,cv2.COLOR_BGR2RGB)
+        else:
+            ret = I
+    elif space == 'gray':
+        ret = cv2.cvtColor(cv2.cvtColor(I,cv2.COLOR_BGR2GRAY),cv2.COLOR_GRAY2BGR)
+        # add color channels:
+    elif space == 'HLS':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+    elif space == 'HSV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2HSV)
+    elif space == 'LUV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2LUV)
+    elif space == 'YUV':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2YUV)
+    elif space == 'YCrCb':
+        ret = cv2.cvtColor(I,cv2.COLOR_BGR2YCrCb)
+    return ret
+
+def getMask(I):
+    mask = np.zeros(I.shape, dtype=np.uint8)
+    channel_count = I.shape[2]  # i.e. 3 or 4 depending on your image
+    ignore_mask_color = (255,)*channel_count
+    roi_corners = np.array([[(0,720), (500,345), (780,345),(1280,720)]], dtype=np.int32)
+    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+    return mask
+
+def getMaskTrack(I):
+    mask = np.zeros(I.shape, dtype=np.uint8)
+    channel_count = I.shape[2]  # i.e. 3 or 4 depending on your image
+    ignore_mask_color = (255,)*channel_count
+    roi_corners = np.array([[(360,720), (360,620), (920,620),(920,720)]], dtype=np.int32)
+    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+    return mask
+
+def sobel(img, dir = 'x'):
+     # Sobel x
+     if dir == 'x':
+         sobel = cv2.Sobel(img, cv2.CV_64F, 1, 0) # Take the derivative in x
+     else:
+         sobel = cv2.Sobel(img, cv2.CV_64F, 0, 1) # Take the derivative in y
+     abs_sobel = np.absolute(sobel) # Absolute x derivative to accentuate lines away from horizontal
+     scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
+     return scaled_sobel
+
+def generic_threshold(img, thresh = []):
+    """
+    generic threshold method.
+    Applies each threshold pair on image independently and returns images list with each threshold applied.
+    """
+    
+    if type(thresh) is list:
+        binary = []
+        for t in thresh:
+            temp = np.zeros_like(img)
+            temp[(img >= t[0]) & (img <= t[1])] = 1
+            binary.append(temp)
+    else:
+        binary = np.zeros_like(img)
+        binary[(img >= thresh[0]) & (img <= thresh[1])] = 1
+    
+    return binary
+
+    """
+    generic threshold method.
+    Applies each threshold pair on image independently and returns images list with each threshold applied.
+    """
+    
+    if type(thresh) is list:
+        binary = []
+        for t in thresh:
+            temp = np.zeros_like(img)
+            temp[(img >= t[0]) & (img <= t[1])] = 1
+            binary.append(temp)
+    else:
+        binary = np.zeros_like(img)
+        binary[(img >= thresh[0]) & (img <= thresh[1])] = 1
+    
+    return binary
+on your image
 ignore_mask_color = (255,)*channel_count
 roi_corners = np.array([[(0,720), (500,345), (780,345),(1280,720)]], dtype=np.int32)
 cv2.fillPoly(mask, roi_corners, ignore_mask_color)
@@ -152,7 +280,7 @@ masked_image = cv2.bitwise_and(I, mask)
 # run processor on video stream and visualize, tune to find optimal 
 
 def test():
-    cap = cv2.VideoCapture('video_files/skytrain.mp4')
+    cap = cv2.VideoCapture('video_files/test.mp4')
     cap.set(cv2.CAP_PROP_POS_FRAMES,0)
     ret, I = cap.read()
     maskTrack = getMask(I)
@@ -239,24 +367,39 @@ def test2():
     cap.set(cv2.CAP_PROP_POS_FRAMES,0)
     ret, I = cap.read()
     mask = getMaskTrack(I)
+    maskTrack = getMask(I)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
     while ret:
         ret, I = cap.read()
-        gray = cv2.cvtColor(I,cv2.COLOR_RGB2HSV)
-        edges = cv2.Canny(gray[:,:,1],10,150,apertureSize = 3)
+        Ic = I.copy();
+        # take cropbox out:
+        rect = I[550:720,256:1024,:]
+        gray = cv2.cvtColor(rect,cv2.COLOR_RGB2HSV)
+        out = gray[:,:,2]
+        out = clahe.apply(out)
+        out = cv2.blur(out,(5,5))
+        # put rect back:
+        rstack = np.dstack((out,out,out))
+        I[550:720,256:1024,:] = rstack
+        
+        
+        edges = cv2.Canny(I[:,:,1],10,150,apertureSize = 5)
         # mask edges:
         edges = cv2.bitwise_and(edges,mask[:,:,0])
-        lines = (cv2.HoughLines(edges,1,np.pi/180,100))
+        
+        lines = (cv2.HoughLines(edges,1,np.pi/180,50))
+        L = []
         if lines is not None:
             for l in range(0,lines.shape[0]):
                 rho = lines[l,:,0]
                 theta = lines[l,:,1]
-                if abs(theta-np.pi/2) > 0.2:
+                if abs(theta-np.pi/2) > 1:
                     a = np.cos(theta)
                     b = np.sin(theta)
                     x0 = a*rho
                     y0 = b*rho
                     y1 = 720
-                    y2 = 500
+                    y2 = 600
                     if abs(b)>1e-4:
                         m = a/-b
                         yint = y0-x0*m      
@@ -266,11 +409,46 @@ def test2():
                         x1 = x0
                         x2 = x0
                         
-               
-                    cv2.line(I,(x1,y1),(x2,y2),(0,0,255),2)
-        cv2.imshow("processed", I)
+                    L.append([x1,y1,x2,y2])
+#                    cv2.line(I,(x1,y1),(x2,y2),(0,0,255),2)
+        Ig = cv2.cvtColor(Ic,cv2.COLOR_RGB2HSV)
+        Igc = clahe.apply(Ig[:,:,2])
+#        Igc = cv2.blur(Igc,(5,5))
+#        E2 = cv2.Canny(Igc,10,150,apertureSize = 5)
+        E2 = np.uint8(255*generic_threshold(sobel(Igc), (90,255)))
+        Iout = np.dstack([E2,E2,E2])
+        cv2.imshow("processed", Iout)
         cv2.waitKey(5)
-
+      
+from imutils.object_detection import non_max_suppression
+import imutils
+def test3(): #person detector
+    hog = cv2.HOGDescriptor()
+    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+    
+    cap = cv2.VideoCapture('video_files/skytrain.mp4')
+    cap.set(cv2.CAP_PROP_POS_FRAMES,0)
+    ret, I = cap.read()
+    while ret:
+        ret, image = cap.read()
+        image = imutils.resize(image, width=min(400, image.shape[1]))
+        # detect people in the image
+        (rects, weights) = hog.detectMultiScale(image, winStride=(4, 4), padding=(8, 8), scale=1.05)
+         
+#        # draw the original bounding boxes
+#        for (x, y, w, h) in rects:
+#            cv2.rectangle(orig, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        # apply non-maxima suppression to the bounding boxes using a
+        # fairly large overlap threshold to try to maintain overlapping
+        # boxes that are still people
+        rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+        pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
+         
+        # draw the final bounding boxes
+        for (xA, yA, xB, yB) in pick:
+            cv2.rectangle(image, (xA, yA), (xB, yB), (0, 255, 0), 2)
+        cv2.imshow("processed", image)
+        cv2.waitKey(5)
 
 """
 Process Idea
