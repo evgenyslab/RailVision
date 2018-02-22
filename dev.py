@@ -5,10 +5,11 @@ Development workspace
 """
 import numpy as np
 import cv2
-import imageio
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import glob 
+
+import imageio
 from moviepy.editor import VideoFileClip
 
 cap = cv2.VideoCapture('video_files/skytrain.mp4')
@@ -31,6 +32,13 @@ clip = VideoFileClip(filename)
 clip1 = clip.cutout(0, 4)
 clip1 = clip1.cutout(12,clip1.duration)
 clip1.write_videofile("test.mp4")
+
+# CURVE:
+filename = 'skytrain.mp4'
+clip = VideoFileClip(filename)
+clip1 = clip.cutout(0, 135)
+clip1 = clip1.cutout(35,clip1.duration)
+clip1.write_videofile("test2.mp4")
 
 
 """
@@ -363,7 +371,7 @@ plt.imshow(I)
 
 
 def test2():
-    cap = cv2.VideoCapture('video_files/skytrain.mp4')
+    cap = cv2.VideoCapture('skytrain.mp4')
     cap.set(cv2.CAP_PROP_POS_FRAMES,0)
     ret, I = cap.read()
     mask = getMaskTrack(I)
@@ -410,14 +418,14 @@ def test2():
                         x2 = x0
                         
                     L.append([x1,y1,x2,y2])
-#                    cv2.line(I,(x1,y1),(x2,y2),(0,0,255),2)
-        Ig = cv2.cvtColor(Ic,cv2.COLOR_RGB2HSV)
-        Igc = clahe.apply(Ig[:,:,2])
-#        Igc = cv2.blur(Igc,(5,5))
-#        E2 = cv2.Canny(Igc,10,150,apertureSize = 5)
-        E2 = np.uint8(255*generic_threshold(sobel(Igc), (90,255)))
-        Iout = np.dstack([E2,E2,E2])
-        cv2.imshow("processed", Iout)
+                    cv2.line(I,(x1,y1),(x2,y2),(0,0,255),2)
+#        Ig = cv2.cvtColor(Ic,cv2.COLOR_RGB2HSV)
+#        Igc = clahe.apply(Ig[:,:,2])
+##        Igc = cv2.blur(Igc,(5,5))
+##        E2 = cv2.Canny(Igc,10,150,apertureSize = 5)
+#        E2 = np.uint8(255*generic_threshold(sobel(Igc), (90,255)))
+#        Iout = np.dstack([E2,E2,E2])
+        cv2.imshow("processed", I)
         cv2.waitKey(5)
       
 from imutils.object_detection import non_max_suppression
@@ -449,6 +457,182 @@ def test3(): #person detector
             cv2.rectangle(image, (xA, yA), (xB, yB), (0, 255, 0), 2)
         cv2.imshow("processed", image)
         cv2.waitKey(5)
+
+
+def test4(): # testing with patch matching / Convolution
+    I = cv2.imread('test_output/frame_00.png')
+    HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS) 
+#    plt.figure(1)
+#    plt.clf
+#    plt.imshow(HSV[:,:,1], cmap='gray')
+    p_L = HSV[670:720,395:450,1]
+    p_R = HSV[670:720,730:785,1]
+    (tH, tW) = p_L.shape[:2]
+#    plt.figure(4)
+#    plt.clf
+#    plt.imshow(cv2.blur(p_R,(3,3)), cmap='gray')
+    
+    I_bot = HSV[570:620,:,1]
+    # LEFT
+    result_L = cv2.matchTemplate(I_bot, p_L, cv2.TM_CCORR_NORMED)
+    (_, maxVal_L, _, maxLoc_L) = cv2.minMaxLoc(result_L)
+    # RIGHT
+    result_R = cv2.matchTemplate(I_bot, p_R, cv2.TM_CCORR_NORMED)
+    (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
+#    clone = np.dstack([I_bot, I_bot, I_bot])
+#    cv2.rectangle(clone, (maxLoc[0], maxLoc[1]),(maxLoc[0] + tW, maxLoc[1] + tH), (0, 0, 255), 2)
+#    plt.figure(3)
+#    plt.clf
+#    plt.imshow(clone, cmap='gray')
+    
+    # Hard set L/R:
+    maxLoc_L = [395,0]
+    maxLoc_R = [730,0]
+    # run on video:
+    cap = cv2.VideoCapture('skytrain.mp4')
+    cap.set(cv2.CAP_PROP_POS_FRAMES,20)
+    ret, I = cap.read()
+    while ret:
+        ret, I = cap.read()
+        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+        # left side:
+        x_min_L = maxLoc_L[0] - 10
+        x_max_L = maxLoc_L[0] + tW + 10
+        I_bot_L = HSV[670:720,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L[0], 670+maxLoc_L[1]),(x_min_L + maxLoc_L[0] + tW, 670+maxLoc_L[1] + tH), (0, 0, 255), 2)
+        maxLoc_L = [maxLoc_L[0] + x_min_L, maxLoc_L[1]]
+        # right side:
+        x_min_R = maxLoc_R[0] - 10
+        x_max_R = maxLoc_R[0] + tW + 10
+        I_bot_R = HSV[670:720,x_min_R:x_max_R,1]
+        result_R = cv2.matchTemplate(I_bot_R, p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
+        cv2.rectangle(I, (x_min_R + maxLoc_R[0], 670+maxLoc_R[1]),(x_min_R + maxLoc_R[0] + tW, 670+maxLoc_R[1] + tH), (0, 255, 0), 2)
+        maxLoc_R = [maxLoc_R[0] + x_min_R, maxLoc_R[1]]
+        # add more layers:
+        x_min_L = maxLoc_L[0]  + 20
+        x_max_L = maxLoc_L[0] + tW + 30
+        I_bot_L = HSV[670-tH:720-tH,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]), (0, 0, 255), 2)
+#        maxLoc_L = [maxLoc_L[0] + x_min_L, maxLoc_L[1]]
+        # right side:
+        x_min_R = maxLoc_R[0] - 30
+        x_max_R = maxLoc_R[0] + tW -20 
+        I_bot_R = HSV[670-tH:720-tH,x_min_R:x_max_R,1]
+        result_R2 = cv2.matchTemplate(I_bot_R, p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
+        cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]), (0, 255, 0), 2)
+#        maxLoc_R = [maxLoc_R[0] + x_min_R, maxLoc_R[1]]
+            
+        # Display
+        cv2.imshow("processed", I)
+        cv2.waitKey(5)
+
+
+class railDetector():
+    def __init__(self, L = 395, R = 710):
+        I = cv2.imread('test_output/frame_00.png')
+        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS) 
+        self.p_L = HSV[670:720,395:450,1]
+        self.p_R = HSV[670:720,730:785,1]
+        (self.tH, self.tW) = self.p_L.shape[:2]
+        # Hard set L/R:
+        self.maxLoc_L = [L,0]
+        self.maxLoc_R = [R,0]
+    
+    def process(self,I):
+        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+        # left side:
+        x_min_L = self.maxLoc_L[0] - 10
+        x_max_L = self.maxLoc_L[0] + tW + 10
+        I_bot_L = HSV[670:720,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L[0], 670+maxLoc_L[1]),(x_min_L + maxLoc_L[0] + tW, 670+maxLoc_L[1] + tH), (0, 0, 255), 2)
+        self.maxLoc_L = [maxLoc_L[0] + x_min_L, maxLoc_L[1]]
+        # right side:
+        x_min_R = self.maxLoc_R[0] - 10
+        x_max_R = self.maxLoc_R[0] + tW + 10
+        I_bot_R = HSV[670:720,x_min_R:x_max_R,1]
+        result_R = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
+        cv2.rectangle(I, (x_min_R + maxLoc_R[0], 670+maxLoc_R[1]),(x_min_R + maxLoc_R[0] + tW, 670+maxLoc_R[1] + tH), (0, 255, 0), 2)
+        self.maxLoc_R = [maxLoc_R[0] + x_min_R, maxLoc_R[1]]
+        # add more layers:
+        x_min_L = self.maxLoc_L[0]  + 20
+        x_max_L = self.maxLoc_L[0] + tW + 30
+        I_bot_L = HSV[670-tH:720-tH,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]), (0, 0, 255), 2)
+        maxLoc_L2 = [maxLoc_L2[0] + x_min_L, maxLoc_L2[1]]
+        # right side:
+        x_min_R = self.maxLoc_R[0] - 30
+        x_max_R = self.maxLoc_R[0] + tW -20 
+        I_bot_R = HSV[670-tH:720-tH,x_min_R:x_max_R,1]
+        result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
+        cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]), (0, 255, 0), 2)
+        maxLoc_R2 = [maxLoc_R2[0] + x_min_R, maxLoc_R2[1]]
+        
+        x_min_L = maxLoc_L2[0]  + 15
+        x_max_L = maxLoc_L2[0] + tW + 25
+        I_bot_L = HSV[670-2*tH:720-2*tH,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-2*tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]-tH), (0, 0, 255), 2)
+        maxLoc_L2 = [maxLoc_L2[0] + x_min_L, maxLoc_L2[1]]
+#        # right side:
+        x_min_R = maxLoc_R2[0] - 25
+        x_max_R = maxLoc_R2[0] + tW -15 
+        I_bot_R = HSV[670-2*tH:720-2*tH,x_min_R:x_max_R,1]
+        result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
+        cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-2*tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]-tH), (0, 255, 0), 2)
+        maxLoc_R2 = [maxLoc_R2[0] + x_min_R, maxLoc_R2[1]]
+        
+        x_min_L = maxLoc_L2[0]  + 15
+        x_max_L = maxLoc_L2[0] + tW + 25
+        I_bot_L = HSV[670-3*tH:720-3*tH,x_min_L:x_max_L,1]
+        result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
+        (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
+        cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-3*tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]-2*tH), (0, 0, 255), 2)
+        maxLoc_L2 = [maxLoc_L2[0] + x_min_L, maxLoc_L2[1]]
+#        # right side:
+        x_min_R = maxLoc_R2[0] - 25
+        x_max_R = maxLoc_R2[0] + tW -15 
+        I_bot_R = HSV[670-3*tH:720-3*tH,x_min_R:x_max_R,1]
+        result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
+        (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
+        cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-3*tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]-2*tH), (0, 255, 0), 2)
+        maxLoc_R2 = [maxLoc_R2[0] + x_min_R, maxLoc_R2[1]]
+        
+        return I
+
+
+
+detector = railDetector(R = 720)
+cap = cv2.VideoCapture('skytrain.mp4')
+cap.set(cv2.CAP_PROP_POS_FRAMES,20)
+ret, I = cap.read()
+while ret:
+    ret, I = cap.read()
+    cv2.imshow("processed", detector.process(I))
+    cv2.waitKey(5)
+
+# process:
+fileName = 'test2.mp4'
+write_output = 'test_output/' + fileName
+clip1 = VideoFileClip(fileName)
+firstImage = clip1.get_frame(0)
+# make rail tracker object:
+detector = railDetector()
+white_clip = clip1.fl_image(detector.process)
+white_clip.write_videofile(write_output, audio=False)
 
 """
 Process Idea
