@@ -462,12 +462,15 @@ def test3(): #person detector
 def test4(): # testing with patch matching / Convolution
     I = cv2.imread('test_output/frame_00.png')
     HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS) 
-#    plt.figure(1)
-#    plt.clf
-#    plt.imshow(HSV[:,:,1], cmap='gray')
+    plt.figure(1)
+    plt.clf
+    plt.imshow(HSV[:,:,1], cmap='gray')
+    
+    
     p_L = HSV[670:720,395:450,1]
     p_R = HSV[670:720,730:785,1]
     (tH, tW) = p_L.shape[:2]
+    rail_width = 350
 #    plt.figure(4)
 #    plt.clf
 #    plt.imshow(cv2.blur(p_R,(3,3)), cmap='gray')
@@ -479,6 +482,32 @@ def test4(): # testing with patch matching / Convolution
     # RIGHT
     result_R = cv2.matchTemplate(I_bot, p_R, cv2.TM_CCORR_NORMED)
     (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
+    
+    # take the normalized sum of the results with offset of 350 pixels to find most likely pose of both rails:
+    
+    rL = (result_L[0,:]-result_L[0,:].min())/(result_L[0,:]-result_L[0,:].min()).max()
+    rR = (result_R[0,:]-result_R[0,:].min())/(result_R[0,:]-result_R[0,:].min()).max()
+    #sum of L/R responses with offset with rail_width:
+    # technically, the max of these will set initial position, but may need to sweep rail_width...
+    rsums = rL[:-rail_width] + rR[rail_width:]
+    
+    #sweeping rail width:
+    wwopt = [(rL[:-ww] + rR[ww:]).max() for ww in range(350-20,350+20)]
+    # max:
+    pos = [i for i in range(0,len(wwopt)) if wwopt[i]==max(wwopt)]
+    
+    www = 350-20 + pos[0]
+    rsums = rL[:-www] + rR[www:]
+    
+    
+    plt.figure(2)
+    plt.clf()
+    plt.plot(np.linspace(1,len(rL),len(rL)),rL,'*b')
+    plt.plot(np.linspace(1,len(rR),len(rR)),rR,'*r')
+    plt.plot(np.linspace(1,len(rsums),len(rsums)),rsums,'*k')
+    
+    
+    
 #    clone = np.dstack([I_bot, I_bot, I_bot])
 #    cv2.rectangle(clone, (maxLoc[0], maxLoc[1]),(maxLoc[0] + tW, maxLoc[1] + tH), (0, 0, 255), 2)
 #    plt.figure(3)
@@ -494,11 +523,11 @@ def test4(): # testing with patch matching / Convolution
     ret, I = cap.read()
     while ret:
         ret, I = cap.read()
-        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+        HLS = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
         # left side:
         x_min_L = maxLoc_L[0] - 10
         x_max_L = maxLoc_L[0] + tW + 10
-        I_bot_L = HSV[670:720,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670:720,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L[0], 670+maxLoc_L[1]),(x_min_L + maxLoc_L[0] + tW, 670+maxLoc_L[1] + tH), (0, 0, 255), 2)
@@ -506,7 +535,7 @@ def test4(): # testing with patch matching / Convolution
         # right side:
         x_min_R = maxLoc_R[0] - 10
         x_max_R = maxLoc_R[0] + tW + 10
-        I_bot_R = HSV[670:720,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670:720,x_min_R:x_max_R,1]
         result_R = cv2.matchTemplate(I_bot_R, p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
         cv2.rectangle(I, (x_min_R + maxLoc_R[0], 670+maxLoc_R[1]),(x_min_R + maxLoc_R[0] + tW, 670+maxLoc_R[1] + tH), (0, 255, 0), 2)
@@ -514,7 +543,7 @@ def test4(): # testing with patch matching / Convolution
         # add more layers:
         x_min_L = maxLoc_L[0]  + 20
         x_max_L = maxLoc_L[0] + tW + 30
-        I_bot_L = HSV[670-tH:720-tH,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670-tH:720-tH,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]), (0, 0, 255), 2)
@@ -522,7 +551,7 @@ def test4(): # testing with patch matching / Convolution
         # right side:
         x_min_R = maxLoc_R[0] - 30
         x_max_R = maxLoc_R[0] + tW -20 
-        I_bot_R = HSV[670-tH:720-tH,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670-tH:720-tH,x_min_R:x_max_R,1]
         result_R2 = cv2.matchTemplate(I_bot_R, p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
         cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]), (0, 255, 0), 2)
@@ -532,24 +561,99 @@ def test4(): # testing with patch matching / Convolution
         cv2.imshow("processed", I)
         cv2.waitKey(5)
 
+def detectOnLine(image = None , template = None ,x_start = 0, x_width = 10, y = 0): 
+    """
+    Opencv Template-Matching detector, y_range == template.height
+    x_start is start location to search, x_width is the padding around tamplate to use
+    x_start must be >= 0
+    Patch is take from y and downward!
+    Pass full image in...
+    """
+    raise NameError('No input image') if image is None else pass
+    raise NameError('No template image') if template is None else pass
+    (h,w) = image.shape[:2]
+    (tH, tW) = template.shape[:2]
+    # throw error is y+tH > h!
+    raise NameError('y + tH > h!') if y+tH>h else pass
+    
+    x_min = x_start if x_start-x_width < 0 else x_start-x_width
+    x_max = w is x_start+x_witdh+tW > w else x_start+x_witdh+tW 
+    # take a portion of the image that is the height of the patch
+    imagePatch = image[y:y+tH,x_min:x_max]
+    # Use opencv Template matching normalized cross-correlation:
+    result = cv2.matchTemplate(imagePatch, template, cv2.TM_CCORR_NORMED)
+    # find the best response:
+    (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+    # Get bounding rectangle for match in IMAGE COORDINATES:
+    rect = [x_min + maxLoc[0], y+maxLoc[1], x_min + maxLoc[0] + tW, y+maxLoc[1] + tH]
+    maxLoc = [maxLoc[0] + x_min_L, maxLoc[1]]
+    return maxLoc, rect
+
+def getTemplate(image = None, ch = 0, y_range = [0,0], x_range = [0,0], space = 'HLS', ocv = False):
+    raise NameError('No input image') if image is None else pass
+    I = convertColorSpace(image,space = space, cvload = ocv)
+    # raise some logical errors:
+    raise NameError('y range < 0!') if y_range[1]-y_range[0]<=0 else pass
+    raise NameError('x range < 0!') if x_range[1]-x_range[0]<=0 else pass
+
+    raise NameError('y range is out of image!') if (y_range[0]<=0 or y_range[1]>image.shape[0]) else pass
+    raise NameError('x range is out of image!') if (x_range[0]<=0 or x_range[1]>image.shape[1]) else pass
+
+    patch = I[y_range[0]:y_range[1],x_range[0]:x_range[1],ch]
+    
+    return patch
+    
+
+
+class rail():
+    def __init__(self, template = None):
+        self.template = None
+        self.pose = [0,0]
 
 class railDetector():
-    def __init__(self, L = 395, R = 710):
+    def __init__(self, L = 395, R = 710, w = 350, usingOCV = False):
+        # may want to automate this part to grab initial templates:
         I = cv2.imread('test_output/frame_00.png')
-        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS) 
-        self.p_L = HSV[670:720,395:450,1]
-        self.p_R = HSV[670:720,730:785,1]
+        HLS = cv2.cvtColor(I,cv2.COLOR_BGR2HLS) 
+        self.p_L = HLS[670:720,395:450,1]
+        self.p_R = HLS[670:720,730:785,1]
         (self.tH, self.tW) = self.p_L.shape[:2]
         # Hard set L/R:
+        self.R_init = R
+        self.L_init = L
         self.maxLoc_L = [L,0]
         self.maxLoc_R = [R,0]
+        self.w = w
+        self.usingOCV = usingOCV
+    
+
     
     def process(self,I):
-        HSV = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+        # color conversion:
+        HLS = cv2.cvtColor(I,cv2.COLOR_BGR2HLS)
+        """
+        first layer: (may need an initialization with no seed available)
+            if seed or previous available:
+                get Right Patch Response by previous (or init) seed
+                get Left Patch Response by previous (or init) seed
+                using pre-set rail width in pixels, find responses that best fit width (max for both)
+                (tracking with previous data) smooth with any previous data
+            if no seed or previous available:
+                TBD
+        for each next layer:
+            using first layer seed + search bnd:
+                get Right Patch Response by previous (or init) seed
+                get Left Patch Response by previous (or init) seed
+                find best response with less than or equal to width from previous layer
+        output is left, right tracks represented by matched patches
+        next up, need to fit polygon to each lane:
+            TBD! but general idea is to mask everything outside of matched blocks,
+            find edges, use edge pixels to fit 2nd order poly along y-direction
+        """
         # left side:
         x_min_L = self.maxLoc_L[0] - 10
         x_max_L = self.maxLoc_L[0] + tW + 10
-        I_bot_L = HSV[670:720,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670:720,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L[0], 670+maxLoc_L[1]),(x_min_L + maxLoc_L[0] + tW, 670+maxLoc_L[1] + tH), (0, 0, 255), 2)
@@ -557,7 +661,7 @@ class railDetector():
         # right side:
         x_min_R = self.maxLoc_R[0] - 10
         x_max_R = self.maxLoc_R[0] + tW + 10
-        I_bot_R = HSV[670:720,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670:720,x_min_R:x_max_R,1]
         result_R = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R) = cv2.minMaxLoc(result_R)
         cv2.rectangle(I, (x_min_R + maxLoc_R[0], 670+maxLoc_R[1]),(x_min_R + maxLoc_R[0] + tW, 670+maxLoc_R[1] + tH), (0, 255, 0), 2)
@@ -565,7 +669,7 @@ class railDetector():
         # add more layers:
         x_min_L = self.maxLoc_L[0]  + 20
         x_max_L = self.maxLoc_L[0] + tW + 30
-        I_bot_L = HSV[670-tH:720-tH,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670-tH:720-tH,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]), (0, 0, 255), 2)
@@ -573,7 +677,7 @@ class railDetector():
         # right side:
         x_min_R = self.maxLoc_R[0] - 30
         x_max_R = self.maxLoc_R[0] + tW -20 
-        I_bot_R = HSV[670-tH:720-tH,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670-tH:720-tH,x_min_R:x_max_R,1]
         result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
         cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]), (0, 255, 0), 2)
@@ -581,7 +685,7 @@ class railDetector():
         
         x_min_L = maxLoc_L2[0]  + 15
         x_max_L = maxLoc_L2[0] + tW + 25
-        I_bot_L = HSV[670-2*tH:720-2*tH,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670-2*tH:720-2*tH,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-2*tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]-tH), (0, 0, 255), 2)
@@ -589,7 +693,7 @@ class railDetector():
 #        # right side:
         x_min_R = maxLoc_R2[0] - 25
         x_max_R = maxLoc_R2[0] + tW -15 
-        I_bot_R = HSV[670-2*tH:720-2*tH,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670-2*tH:720-2*tH,x_min_R:x_max_R,1]
         result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
         cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-2*tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]-tH), (0, 255, 0), 2)
@@ -597,7 +701,7 @@ class railDetector():
         
         x_min_L = maxLoc_L2[0]  + 15
         x_max_L = maxLoc_L2[0] + tW + 25
-        I_bot_L = HSV[670-3*tH:720-3*tH,x_min_L:x_max_L,1]
+        I_bot_L = HLS[670-3*tH:720-3*tH,x_min_L:x_max_L,1]
         result_L = cv2.matchTemplate(I_bot_L, self.p_L, cv2.TM_CCORR_NORMED)
         (_, maxVal_L, _, maxLoc_L2) = cv2.minMaxLoc(result_L)
         cv2.rectangle(I, (x_min_L + maxLoc_L2[0], 670+maxLoc_L2[1]-3*tH),(x_min_L + maxLoc_L2[0] + tW, 670+maxLoc_L2[1]-2*tH), (0, 0, 255), 2)
@@ -605,7 +709,7 @@ class railDetector():
 #        # right side:
         x_min_R = maxLoc_R2[0] - 25
         x_max_R = maxLoc_R2[0] + tW -15 
-        I_bot_R = HSV[670-3*tH:720-3*tH,x_min_R:x_max_R,1]
+        I_bot_R = HLS[670-3*tH:720-3*tH,x_min_R:x_max_R,1]
         result_R2 = cv2.matchTemplate(I_bot_R, self.p_R, cv2.TM_CCORR_NORMED)
         (_, maxVal_R, _, maxLoc_R2) = cv2.minMaxLoc(result_R2)
         cv2.rectangle(I, (x_min_R + maxLoc_R2[0], 670+maxLoc_R2[1]-3*tH),(x_min_R + maxLoc_R2[0] + tW, 670+maxLoc_R2[1]-2*tH), (0, 255, 0), 2)
@@ -634,29 +738,3 @@ detector = railDetector()
 white_clip = clip1.fl_image(detector.process)
 white_clip.write_videofile(write_output, audio=False)
 
-"""
-Process Idea
-
-take gray image (or HLS?)
-use Left/ right track separate seeds
-for each lane;
-    grab bottom 10% of pixles near seed location
-    verticall sum them, take pixel pose with largest response
-    use that pose and estimate track width as start pose for Y vertical pixels
-    then scan up from first seed width up to vertical limit
-
-May be better to find exactly which channel x-sobel should be applied on, what color range in color space
-
-Rail Properties
-HSV:
-    low saturation < 90
-    
-    S < 90  + 90 < v < 120
-    
-HSL:
-    low saturation < 50
-
-CMYK:
-    K value (110-172)
-    M < 100
-"""
